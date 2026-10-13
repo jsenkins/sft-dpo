@@ -1,0 +1,9 @@
+__pycache__/
+*.py[cod]
+outputs/
+data/*.json
+*.safetensors
+*.pt
+state.db
+*.zip
+write_test.txt
