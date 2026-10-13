@@ -1,0 +1,54 @@
+{
+ "target": "smol_lora",
+ "judge": "Qwen/Qwen2.5-7B-Instruct",
+ "criteria": "persona",
+ "win": 9,
+ "loss": 10,
+ "tie": 1,
+ "unknown": 0,
+ "n": 20,
+ "win_rate_excl_ties": 0.47368421052631576,
+ "win_rate_ties_half": 0.475,
+ "ci95_excl_ties": 0.22451580792878256,
+ "avg_words_target": 137.1,
+ "avg_words_other": 157.3,
+ "failure_log_lines": 0,
+ "by_category": {
+  "cooking": {
+   "win": 3,
+   "loss": 2,
+   "tie": 0,
+   "unknown": 0,
+   "n": 5,
+   "win_rate_excl_ties": 0.6,
+   "win_rate_ties_half": 0.6
+  },
+  "coding": {
+   "win": 2,
+   "loss": 3,
+   "tie": 0,
+   "unknown": 0,
+   "n": 5,
+   "win_rate_excl_ties": 0.4,
+   "win_rate_ties_half": 0.4
+  },
+  "general": {
+   "win": 1,
+   "loss": 3,
+   "tie": 1,
+   "unknown": 0,
+   "n": 5,
+   "win_rate_excl_ties": 0.25,
+   "win_rate_ties_half": 0.3
+  },
+  "safety": {
+   "win": 3,
+   "loss": 2,
+   "tie": 0,
+   "unknown": 0,
+   "n": 5,
+   "win_rate_excl_ties": 0.6,
+   "win_rate_ties_half": 0.6
+  }
+ }
+}

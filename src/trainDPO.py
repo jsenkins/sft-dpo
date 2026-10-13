@@ -1,23 +1,22 @@
+import sys, os
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.abspath(os.path.join(HERE, "..")))
+sys.path.insert(0, HERE)
 
-
-
-import argparse, json, os, random, torch
+import argparse, json, random, torch
 import torch.nn.functional as F
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from core import dpo_logps, compute_dpo_loss_from_logps
 from prompts import fmt
 from utils import log_jsonl, save_state, load_state
-import sys, os
-HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.abspath(os.path.join(HERE, "..")))
-sys.path.insert(0, HERE)
+
 p = argparse.ArgumentParser()
 p.add_argument("--sft", default="outputs/sft/best"); p.add_argument("--out", required=True)
 p.add_argument("--train", required=True); p.add_argument("--val", required=True)
 p.add_argument("--beta", type=float, default=0.1); p.add_argument("--lr", type=float, default=1e-6)
 p.add_argument("--acc", type=int, default=32); p.add_argument("--maxlen", type=int, default=512)
 p.add_argument("--eval_every", type=int, default=100); p.add_argument("--eval_bs", type=int, default=4)
-p.add_argument("--save_every", type=int, default=100)
+p.add_argument("--save_every", type=int, default=100000)
 p.add_argument("--n_train", type=int, default=15000); p.add_argument("--n_val", type=int, default=1000)
 p.add_argument("--seed", type=int, default=42)
 a = p.parse_args(); os.makedirs(a.out, exist_ok=True); MP = f"{a.out}/metrics.jsonl"
@@ -25,14 +24,15 @@ a = p.parse_args(); os.makedirs(a.out, exist_ok=True); MP = f"{a.out}/metrics.js
 train = json.load(open(a.train))[:a.n_train]; val = json.load(open(a.val))[:a.n_val]
 random.Random(a.seed).shuffle(train)
 tok = AutoTokenizer.from_pretrained(a.sft)
-pol = AutoModelForCausalLM.from_pretrained(a.sft, torch_dtype=torch.float32).cuda()
-ref = AutoModelForCausalLM.from_pretrained(a.sft, torch_dtype=torch.float16).to("cuda:1").eval()
+pol = AutoModelForCausalLM.from_pretrained(a.sft, dtype=torch.float32).to("cuda:0")
+ref_dev = "cuda:1" if torch.cuda.device_count() > 1 else "cuda:0"
+ref = AutoModelForCausalLM.from_pretrained(a.sft, dtype=torch.float16).to(ref_dev).eval()
 for q in ref.parameters(): q.requires_grad_(False)
 pol.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
 pol.config.use_cache = False; pol.train()
 
 opt = torch.optim.AdamW(pol.parameters(), lr=a.lr, weight_decay=0.0)
-scaler = torch.cuda.amp.GradScaler()
+scaler = torch.amp.GradScaler("cuda")
 total = len(train) // a.acc
 step, extra = load_state(f"{a.out}/last", pol, opt, None, scaler)
 best = extra.get("best", -1.0)
@@ -52,7 +52,7 @@ def evaluate():
 
 if step == 0:
     ac, mg, l = evaluate(); log_jsonl(MP, {"step": 0, "val_acc": ac, "val_margin": mg, "val_loss": l})
-    print("step 0 sanity (expect acc~0, margin~0):", ac, mg, l)
+    print("step 0 sanity (expect margin~0, loss~0.693):", ac, mg, l)
 
 for s in range(step, total):
     tl = tacc = tmarg = 0.0
@@ -75,4 +75,3 @@ for s in range(step, total):
     if step % a.save_every == 0: save_state(f"{a.out}/last", pol, opt, None, scaler, step, {"best": best})
 
 pol.save_pretrained(f"{a.out}/final"); tok.save_pretrained(f"{a.out}/final")
-
